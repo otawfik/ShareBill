@@ -1,14 +1,15 @@
 
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { ReceiptAnalysis } from "../types";
 
+// Follow @google/genai guidelines for API key and initialization
 export class GeminiService {
-  private static getAI() {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-  }
-
+  /**
+   * Analyzes a receipt image using Gemini 3 Pro.
+   */
   static async analyzeReceipt(base64Image: string): Promise<ReceiptAnalysis> {
-    const ai = this.getAI();
+    // ALWAYS use process.env.API_KEY directly for initialization
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
     const response = await ai.models.generateContent({
@@ -55,15 +56,33 @@ export class GeminiService {
     });
 
     try {
-      return JSON.parse(response.text || '{}');
+      // response.text is a property, not a method.
+      const text = response.text || "{}";
+      const result = JSON.parse(text);
+      
+      // Ensure robust data for the UI
+      return {
+        items: (result.items || []).map((item: any) => ({
+          ...item,
+          id: item.id || Math.random().toString(36).substr(2, 9)
+        })),
+        subtotal: result.subtotal || 0,
+        tax: result.tax || 0,
+        tip: result.tip || 0,
+        total: result.total || 0,
+        currency: result.currency || '$'
+      };
     } catch (e) {
       console.error("Failed to parse receipt analysis", e);
       throw new Error("Could not read the receipt clearly. Please try again.");
     }
   }
 
+  /**
+   * Edits a receipt image using Gemini 2.5 Flash Image.
+   */
   static async editImage(base64Image: string, prompt: string): Promise<string> {
-    const ai = this.getAI();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
     const response = await ai.models.generateContent({
@@ -72,8 +91,8 @@ export class GeminiService {
         parts: [
           {
             inlineData: {
-              mimeType: 'image/jpeg',
               data: cleanBase64,
+              mimeType: 'image/jpeg',
             },
           },
           {
@@ -83,7 +102,11 @@ export class GeminiService {
       },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    // Extract image from response parts
+    const candidates = response.candidates || [];
+    const parts = candidates[0]?.content?.parts || [];
+
+    for (const part of parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }

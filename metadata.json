@@ -1,0 +1,7 @@
+{
+  "name": "ShareBill AI",
+  "description": "A professional-grade receipt scanner and bill splitter powered by Gemini AI. Scan receipts, assign items to friends, and use AI to enhance your photos.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
